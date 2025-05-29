@@ -14,9 +14,7 @@ class GrammarService:
         return cls._instance
 
     def check_grammar(self, text: str) -> Dict:
-        """
-        Check grammar and return corrections using the public LanguageTool API.
-        """
+
         if not text or not text.strip():
             return {'original': text, 'corrected': text, 'errors': []}
 
