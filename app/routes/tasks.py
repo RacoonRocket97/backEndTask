@@ -1,18 +1,32 @@
-from flask import render_template, flash, redirect, url_for, request, current_app, abort
+from flask import render_template, flash, redirect, url_for, request, current_app, abort, jsonify
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 import os
 from app import db
 from app.forms import TaskForm, SearchForm
 from app.models import Task
+from app.services.grammar_service import GrammarService
 from flask import Blueprint
 
 tasks_bp = Blueprint('tasks', __name__)
+
+grammar_service = GrammarService()
 
 
 def allowed_file(filename):
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
+
+
+@tasks_bp.route('/check-grammar', methods=['POST'])
+@login_required
+def check_grammar():
+
+    data = request.get_json()
+    text = data.get('text', '')
+
+    result = grammar_service.check_grammar(text)
+    return jsonify(result)
 
 
 @tasks_bp.route('/tasks', methods=['GET', 'POST'])
@@ -42,6 +56,7 @@ def tasks():
                            title='My Tasks',
                            tasks=tasks,
                            form=form)
+
 
 @tasks_bp.route('/task/new', methods=['GET', 'POST'])
 @login_required

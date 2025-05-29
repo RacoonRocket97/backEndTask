@@ -18,11 +18,28 @@
                         {% endfor %}
                     </div>
                     <div class="mb-3">
-                        {{ form.description.label(class="form-label") }}
-                        {{ form.description(class="form-control", rows=4) }}
+                        <div class="d-flex justify-content-between align-items-center">
+                            {{ form.description.label(class="form-label") }}
+                            <button type="button" id="checkGrammarBtn" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-check2-circle"></i> Check Grammar
+                            </button>
+                        </div>
+                        {{ form.description(class="form-control", rows=4, id="descriptionField") }}
                         {% for error in form.description.errors %}
                             <div class="invalid-feedback d-block">{{ error }}</div>
                         {% endfor %}
+
+                        <div id="grammarResults" class="mt-2" style="display: none;">
+                            <div class="alert alert-info">
+                                <div id="grammarSuggestions"></div>
+                                <button type="button" id="applySuggestions" class="btn btn-success btn-sm mt-2">
+                                    Apply Corrections
+                                </button>
+                                <button type="button" id="dismissSuggestions" class="btn btn-secondary btn-sm mt-2 ms-2">
+                                    Dismiss
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
@@ -58,4 +75,86 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkGrammarBtn = document.getElementById('checkGrammarBtn');
+    const descriptionField = document.getElementById('descriptionField');
+    const grammarResults = document.getElementById('grammarResults');
+    const grammarSuggestions = document.getElementById('grammarSuggestions');
+    const applySuggestionsBtn = document.getElementById('applySuggestions');
+    const dismissSuggestionsBtn = document.getElementById('dismissSuggestions');
+
+    let grammarData = null;
+
+    checkGrammarBtn.addEventListener('click', function() {
+        const text = descriptionField.value.trim();
+
+        if (!text) {
+            alert('Please enter some text to check.');
+            return;
+        }
+
+        checkGrammarBtn.innerHTML = '<i class="spinner-border spinner-border-sm"></i> Checking...';
+        checkGrammarBtn.disabled = true;
+
+        fetch('{{ url_for("tasks.check_grammar") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+            },
+            body: JSON.stringify({ text: text })
+        })
+        .then(response => response.json())
+        .then(data => {
+            grammarData = data;
+            displayGrammarResults(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error checking grammar. Please try again.');
+        })
+        .finally(() => {
+            // Reset button
+            checkGrammarBtn.innerHTML = '<i class="bi bi-check2-circle"></i> Check Grammar';
+            checkGrammarBtn.disabled = false;
+        });
+    });
+
+    applySuggestionsBtn.addEventListener('click', function() {
+        if (grammarData && grammarData.corrected) {
+            descriptionField.value = grammarData.corrected;
+            grammarResults.style.display = 'none';
+        }
+    });
+
+    dismissSuggestionsBtn.addEventListener('click', function() {
+        grammarResults.style.display = 'none';
+    });
+
+    function displayGrammarResults(data) {
+        if (!data.has_errors) {
+            grammarSuggestions.innerHTML = '<strong>Great!</strong> No grammar issues found.';
+            applySuggestionsBtn.style.display = 'none';
+        } else {
+            let html = '<strong>Grammar suggestions:</strong><ul>';
+            data.errors.forEach(error => {
+                html += `<li><strong>${error.message}</strong>`;
+                if (error.suggestions.length > 0) {
+                    html += ` Suggestions: ${error.suggestions.join(', ')}`;
+                }
+                html += '</li>';
+            });
+            html += '</ul>';
+            grammarSuggestions.innerHTML = html;
+            applySuggestionsBtn.style.display = 'inline-block';
+        }
+
+        grammarResults.style.display = 'block';
+    }
+});
+</script>
 {% endblock %}
